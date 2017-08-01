@@ -1,0 +1,389 @@
+172.16.1.80 nginx服务器 访问策略
+---------INPUT链
+放行所有ESTABLISHED状态
+iptables -I INPUT -d 172.16.1.80 -p tcp -m state --state ESTABLISHED -j ACCEPT
+
+多端口放行NEW状态
+iptables -A INPUT -d 172.16.1.80 -p tcp -m multiport --destination-ports 22,80 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A INPUT -i lo -j ACCEPT
+
+放行NFS数据
+iptables -I INPUT -s 172.16.1.100 -d 172.16.1.80 -j ACCEPT
+
+---------OUTPUT链
+放行所有ESTABLISHED数据
+iptables -I OUTPUT -s 172.16.1.80 -m state --state ESTABLISHED -j ACCEPT
+
+放行与内网通信数据
+iptables -A OUTPUT -s 172.16.1.80 -d 172.16.1.0/24 -m state --state NEW -j ACCEPT
+
+放行VPN
+iptables -A OUTPUT -s 172.16.1.80 -d 192.168.10.0/24 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A OUTPUT -o lo -j ACCEPT
+
+放行NFS数据
+iptables -A OUTPUT -s 172.16.1.80 -d 172.16.1.100 -j ACCEPT
+
+---------修改默认策略
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+
+***********************************************************************
+
+172.16.1.100 NFS服务器 访问策略
+注:该服务器禁止与外网通信
+---------INPUT链
+放行所有的ESTABLISHED状态
+iptables -I INPUT -d 172.16.1.100 -p tcp -m state --state ESTABLISHED -j ACCEPT
+
+多端口放行NEW状态
+放行NFS服务端口数据
+iptables -A INPUT -s 172.16.1.0/24 -d 172.16.1.100 -p tcp -m multiport --destination-ports 32803,32769,892,875,2049 -m state --state NEW -j ACCEPT
+iptables -I INPUT 3 -s 172.16.1.0/24 -d 172.16.1.100 -p udp -m multiport --destination-ports 32803,32769,892,875,2049  -j ACCEPT
+放行SSH的22端口
+iptables -A INPUT -s 172.16.1.0/24 -d 172.16.1.100 -p tcp --dport 22 -m state --state NEW -j ACCEPT
+放行所有VPN连接的的NEW状态(如果以后禁止vpn连接上的ssh部署,则需要删除)
+iptables -A INPUT -s 192.168.10.0/24 -d 172.16.1.100 -p tcp --dport 22 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A INPUT -i lo -j ACCEPT
+
+
+---------OUTPUT链
+放行所有内网ESTABLISHED数据
+iptables -I OUTPUT -s 172.16.1.100 -d 172.16.1.0/24 -m state --state ESTABLISHED -j ACCEPT
+
+放行VPN连接上的SSH请求的reply(如果以后禁止vpn连接上的ssh部署,则需要删除)
+iptables -A OUTPUT -s 172.16.1.100 -d 192.168.10.0/24 -m state --state ESTABLISHED -j ACCEPT
+
+放行本机回路
+iptables -A OUTPUT -o lo -j ACCEPT
+
+---------修改默认策略
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+
+
+
+************************************************************************
+
+172.16.1.82 Tomcat服务器 访问策略
+注:该服务器禁止与外网通信
+---------INPUT链
+放行所有的ESTABLISHED状态
+iptables -I INPUT -d 172.16.1.82 -p tcp -m state --state ESTABLISHED -j ACCEPT
+
+多端口放行NEW状态
+放行服务端口数据
+iptables -A INPUT -s 172.16.1.0/24 -d 172.16.1.82 -p tcp -m multiport --destination-ports 22,8080 -m state --state NEW -j ACCEPT
+
+放行所有VPN连接的的NEW状态(如果以后禁止vpn连接上的ssh部署,则需要删除)
+iptables -A INPUT -s 192.168.10.0/24 -d 172.16.1.82 -p tcp --dport 22 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A INPUT -i lo -j ACCEPT
+
+放行ping请求
+iptables -A INPUT -d 172.16.1.82 -p icmp -m icmp --icmp-type 0 -j ACCEPT
+
+放行域名解析
+iptables -A INPUT -s 114.114.114.114 -d 172.16.1.82 -j ACCEPT
+iptables -A INPUT -s 202.96.209.6 -d 172.16.1.82 -j ACCEPT
+
+放行NFS数据
+iptables -A INPUT -s 172.16.1.100 -d 172.16.1.82 -j ACCEPT
+
+---------OUTPUT链
+放行所有内网ESTABLISHED数据
+iptables -I OUTPUT -s 172.16.1.82 -d 172.16.1.0/24 -m state --state ESTABLISHED -j ACCEPT
+
+放行VPN连接上的SSH请求的reply(如果以后禁止vpn连接上的ssh部署,则需要删除)
+iptables -A OUTPUT -s 172.16.1.82 -d 192.168.10.0/24 -m state --state ESTABLISHED -j ACCEPT
+
+放行请求数据库数,zookeeper,redis,NFS
+iptables -I OUTPUT 2 -s 172.16.1.82 -d 172.16.1.89 -m state --state NEW -j ACCEPT
+iptables -I OUTPUT 3 -s 172.16.1.82 -d 172.16.1.88 -m state --state NEW -j ACCEPT
+iptables -I OUTPUT 4 -s 172.16.1.82 -d 172.16.1.86 -m state --state NEW -j ACCEPT
+iptables -I OUTPUT 5 -s 172.16.1.82 -d 172.16.1.85 -m state --state NEW -j ACCEPT
+iptables -I OUTPUT 6 -s 172.16.1.82 -d 172.16.1.100 -m state --state NEW -j ACCEPT
+
+放行请求网关域名解析
+iptables -A OUTPUT -s 172.16.1.82 -d 172.16.1.1 -j ACCEPT
+iptables -A OUTPUT -s 172.16.1.82 -d 114.114.114.114 -j ACCEPT
+iptables -A OUTPUT -s 172.16.1.82 -d 202.96.209.6 -j ACCEPT
+
+放行ping应答
+iptables -R OUTPUT 10 -s 172.16.1.82 -p icmp -m icmp --icmp-type 8 -j ACCEPT
+
+放行业务需求服务器
+iptables -A OUTPUT -s 172.16.1.82 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A OUTPUT -o lo -j ACCEPT
+
+放行NFS数据
+iptables -A OUTPUT -s 172.16.1.82 -d 172.16.1.100 -j ACCEPT
+
+---------修改默认策略
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+
+************************************************************************
+
+172.16.1.83 Tomcat服务器 访问策略
+注:该服务器禁止与外网通信
+---------INPUT链
+放行所有的ESTABLISHED状态
+iptables -I INPUT -d 172.16.1.83 -p tcp -m state --state ESTABLISHED -j ACCEPT
+
+多端口放行NEW状态
+放行服务端口数据
+iptables -A INPUT -s 172.16.1.0/24 -d 172.16.1.83 -p tcp -m multiport --destination-ports 22,8080 -m state --state NEW -j ACCEPT
+
+放行所有VPN连接的的NEW状态(如果以后禁止vpn连接上的ssh部署,则需要删除)
+iptables -A INPUT -s 192.168.10.0/24 -d 172.16.1.83 -p tcp --dport 22 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A INPUT -i lo -j ACCEPT
+
+放行ping请求
+iptables -A INPUT -d 172.16.1.83 -p icmp -m icmp --icmp-type 0 -j ACCEPT
+
+放行域名解析
+iptables -A INPUT -s 114.114.114.114 -d 172.16.1.83 -j ACCEPT
+iptables -A INPUT -s 202.96.209.6 -d 172.16.1.83 -j ACCEPT
+
+放行NFS数据
+iptables -A INPUT -s 172.16.1.100 -d 172.16.1.83 -j ACCEPT
+
+---------OUTPUT链
+放行所有内网ESTABLISHED数据
+iptables -A OUTPUT -s 172.16.1.83 -d 172.16.1.0/24 -m state --state ESTABLISHED -j ACCEPT
+
+放行请求数据库数,zookeeper,redis,NFS
+iptables -I OUTPUT 2 -s 172.16.1.83 -d 172.16.1.89 -m state --state NEW -j ACCEPT
+iptables -I OUTPUT 3 -s 172.16.1.83 -d 172.16.1.88 -m state --state NEW -j ACCEPT
+iptables -I OUTPUT 4 -s 172.16.1.83 -d 172.16.1.86 -m state --state NEW -j ACCEPT
+iptables -I OUTPUT 5 -s 172.16.1.83 -d 172.16.1.85 -m state --state NEW -j ACCEPT
+iptables -I OUTPUT 6 -s 172.16.1.83 -d 172.16.1.100 -m state --state NEW -j ACCEPT
+
+放行VPN连接上的SSH请求的reply(如果以后禁止vpn连接上的ssh部署,则需要删除)
+iptables -A OUTPUT -s 172.16.1.83 -d 192.168.10.0/24 -m state --state ESTABLISHED -j ACCEPT
+
+放行本机回路
+iptables -A OUTPUT -o lo -j ACCEPT
+
+放行请求网关域名解析
+iptables -A OUTPUT -s 172.16.1.83 -d 172.16.1.1 -j ACCEPT
+iptables -A OUTPUT -s 172.16.1.83 -d 114.114.114.114 -j ACCEPT
+iptables -A OUTPUT -s 172.16.1.83 -d 202.96.209.6 -j ACCEPT
+
+放行ping应答
+iptables -R OUTPUT 10 -s 172.16.1.83 -p icmp -m icmp --icmp-type 8 -j ACCEPT
+
+放行业务需求服务器(暂时放行所有请求)
+iptables -A OUTPUT -s 172.16.1.83 -m state --state NEW -j ACCEPT
+
+放行NFS数据
+iptables -A OUTPUT -s 172.16.1.83 -d 172.16.1.100 -j ACCEPT
+
+---------修改默认策略
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+
+************************************************************************
+
+172.16.1.88 MySql-Slave服务器 访问策略
+注:该服务器禁止与外网通信
+---------INPUT链
+放行所有的ESTABLISHED状态
+iptables -I INPUT -d 172.16.1.88 -p tcp -m state --state ESTABLISHED -j ACCEPT
+
+多端口放行NEW状态
+放行服务端口数据
+iptables -A INPUT -s 172.16.1.0/24 -d 172.16.1.88 -p tcp -m multiport --destination-ports 22,3306 -m state --state NEW -j ACCEPT
+
+放行所有VPN连接的的NEW状态(如果以后禁止vpn连接上的ssh部署,则需要删除)
+iptables -A INPUT -s 192.168.10.0/24 -d 172.16.1.88 -p tcp -m multiport --destination-ports 22,3306 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A INPUT -i lo -j ACCEPT
+
+允许slave访问
+iptables -A INPUT -s 172.16.1.89 -d 172.16.1.88 -j ACCEPT
+iptables -A INPUT -s 172.16.1.81 -d 172.16.1.88 -j ACCEPT
+
+---------OUTPUT链
+
+放行所有内网ESTABLISHED数据
+iptables -A OUTPUT -s 172.16.1.88 -d 172.16.1.0/24 -m state --state ESTABLISHED -j ACCEPT
+
+放行VPN连接上的SSH请求的reply(如果以后禁止vpn连接上的ssh部署,则需要删除)
+iptables -A OUTPUT -s 172.16.1.88 -d 192.168.10.0/24 -m state --state ESTABLISHED -j ACCEPT
+
+放行本机回路
+iptables -A OUTPUT -o lo -j ACCEPT
+
+允许返回slave数据
+iptables -A OUTPUT -s 172.16.1.88 -d 172.16.1.89 -j ACCEPT
+iptables -A OUTPUT -s 172.16.1.88 -d 172.16.1.81 -j ACCEPT
+
+---------修改默认策略
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+
+************************************************************************
+172.16.1.89 MySql-Slave服务器 访问策略
+注:该服务器禁止与外网通信
+---------INPUT链
+放行所有的ESTABLISHED状态
+iptables -I INPUT -d 172.16.1.89 -p tcp -m state --state ESTABLISHED -j ACCEPT
+
+多端口放行NEW状态
+放行服务端口数据
+iptables -A INPUT -s 172.16.1.0/24 -d 172.16.1.89 -p tcp -m multiport --destination-ports 22,3306 -m state --state NEW -j ACCEPT
+
+放行所有VPN连接的的NEW状态(如果以后禁止vpn连接上的ssh部署,则需要删除)
+iptables -A INPUT -s 192.168.10.0/24 -d 172.16.1.89 -p tcp -m multiport --destination-ports 22,3306 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A INPUT -i lo -j ACCEPT
+
+放行所有的Master返回的
+iptables -A INPUT -s 172.16.1.88 -d 172.16.1.89 -j ACCEPT
+
+---------OUTPUT链
+允许访问Master数据库
+iptables -A OUTPUT -s 172.16.1.89 -d 172.16.1.88 -m state --state NEW -j ACCEPT
+
+放行所有内网ESTABLISHED数据
+iptables -A OUTPUT -s 172.16.1.89 -d 172.16.1.0/24 -m state --state ESTABLISHED -j ACCEPT
+
+放行VPN连接上的SSH请求的reply(如果以后禁止vpn连接上的ssh部署,则需要删除)
+iptables -A OUTPUT -s 172.16.1.89 -d 192.168.10.0/24 -m state --state ESTABLISHED -j ACCEPT
+
+放行本机回路
+iptables -A OUTPUT -o lo -j ACCEPT
+
+放行所有请求Master的
+iptables -A OUTPUT -s 172.16.1.89 -d 172.16.1.88 -j ACCEPT
+
+---------修改默认策略
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+
+************************************************************************
+
+172.16.1.85 zookeeper redis服务器 访问策略
+---------INPUT链
+放行所有ESTABLISHED状态
+iptables -I INPUT -d 172.16.1.85 -p tcp -m state --state ESTABLISHED -j ACCEPT
+
+多端口放行NEW状态
+iptables -A INPUT -d 172.16.1.85 -p tcp -m multiport --destination-ports 22,6379,2181 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A INPUT -i lo -j ACCEPT
+
+---------OUTPUT链
+放行所有ESTABLISHED数据
+iptables -I OUTPUT -s 172.16.1.85 -m state --state ESTABLISHED -j ACCEPT
+
+放行与内网通信数据
+iptables -A OUTPUT -s 172.16.1.85 -d 172.16.1.0/24 -m state --state NEW -j ACCEPT
+
+放行VPN
+iptables -A OUTPUT -s 172.16.1.85 -d 192.168.10.0/24 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A OUTPUT -o lo -j ACCEPT
+
+---------修改默认策略
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+
+************************************************************************
+
+172.16.1.86 elasticsearch服务器 访问策略
+---------INPUT链
+放行所有ESTABLISHED状态
+iptables -I INPUT -d 172.16.1.86 -p tcp -m state --state ESTABLISHED -j ACCEPT
+
+多端口放行NEW状态
+iptables -A INPUT -d 172.16.1.86 -p tcp -m multiport --destination-ports 22,9300,9200 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A INPUT -i lo -j ACCEPT
+
+---------OUTPUT链
+放行所有ESTABLISHED数据
+iptables -I OUTPUT -s 172.16.1.86 -m state --state ESTABLISHED -j ACCEPT
+
+放行与内网通信数据
+iptables -A OUTPUT -s 172.16.1.86 -d 172.16.1.0/24 -m state --state NEW -j ACCEPT
+
+放行VPN
+iptables -A OUTPUT -s 172.16.1.86 -d 192.168.10.0/24 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A OUTPUT -o lo -j ACCEPT
+
+---------修改默认策略
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+
+************************************************************************
+
+172.16.1.81 MySql-Slave备机, 后台管理系统服务器 访问策略
+注:该服务器禁止与外网通信
+---------INPUT链
+放行所有的ESTABLISHED状态
+iptables -I INPUT -d 172.16.1.81 -p tcp -m state --state ESTABLISHED -j ACCEPT
+
+多端口放行NEW状态
+放行服务端口数据
+iptables -A INPUT -s 172.16.1.0/24 -d 172.16.1.81 -p tcp -m multiport --destination-ports 22,3306,8080 -m state --state NEW -j ACCEPT
+
+放行所有VPN连接的的NEW状态(如果以后禁止vpn连接上的ssh部署,则需要删除)
+iptables -A INPUT -s 192.168.10.0/24 -d 172.16.1.81 -p tcp -m multiport --destination-ports 22,3306,8080 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A INPUT -i lo -j ACCEPT
+
+允许Master访问
+iptables -A INPUT -s 172.16.1.88 -d 172.16.1.81 -j ACCEPT
+
+放行NFS数据
+iptables -A INPUT -s 172.16.1.100 -d 172.16.1.81 -j ACCEPT
+
+---------OUTPUT链
+
+放行所有内网ESTABLISHED数据
+iptables -A OUTPUT -s 172.16.1.81 -d 172.16.1.0/24 -m state --state ESTABLISHED -j ACCEPT
+
+放行VPN连接上的SSH请求的reply(如果以后禁止vpn连接上的ssh部署,则需要删除)
+iptables -A OUTPUT -s 172.16.1.81 -d 192.168.10.0/24 -m state --state ESTABLISHED -j ACCEPT
+
+放行请求数据库数,zookeeper,redis,NFS
+iptables -I OUTPUT 2 -s 172.16.1.81 -d 172.16.1.89 -m state --state NEW -j ACCEPT
+iptables -I OUTPUT 3 -s 172.16.1.81 -d 172.16.1.88 -m state --state NEW -j ACCEPT
+iptables -I OUTPUT 4 -s 172.16.1.81 -d 172.16.1.86 -m state --state NEW -j ACCEPT
+iptables -I OUTPUT 5 -s 172.16.1.81 -d 172.16.1.85 -m state --state NEW -j ACCEPT
+iptables -I OUTPUT 6 -s 172.16.1.81 -d 172.16.1.100 -m state --state NEW -j ACCEPT
+
+放行本机回路
+iptables -A OUTPUT -o lo -j ACCEPT
+
+允许返回slave数据
+iptables -A OUTPUT -s 172.16.1.81 -d 172.16.1.88 -j ACCEPT
+
+放行NFS数据
+iptables -A OUTPUT -s 172.16.1.81 -d 172.16.1.100 -j ACCEPT
+
+---------修改默认策略
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP

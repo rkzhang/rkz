@@ -1,0 +1,1 @@
+export CATALINA_OPTS="-Xms1024m -Xmx2048m -XX:PermSize=64M -XX:MaxNewSize=256M -XX:MaxPermSize=256M -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=172.16.1.82" 
